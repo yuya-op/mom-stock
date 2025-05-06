@@ -1,15 +1,18 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
+import { Inter, M_PLUS_Rounded_1c } from "next/font/google"
 import "./globals.css"
-import { AuthProvider } from "@/contexts/auth-context"
-import { ThemeProvider } from "@/components/theme-provider"
 
-const inter = Inter({ subsets: ["latin"] })
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
+const mplus = M_PLUS_Rounded_1c({
+  weight: ["400", "500", "700"],
+  subsets: ["latin"],
+  variable: "--font-mplus",
+})
 
 export const metadata: Metadata = {
-  title: "Inventory Management",
-  description: "Manage your inventory with ease",
+  title: "mom-stock - 育児ママの味方",
+  description: "おむつや綿棒、ローションなどの在庫管理をスマートに。",
     generator: 'v0.dev'
 }
 
@@ -19,12 +22,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          <AuthProvider>{children}</AuthProvider>
-        </ThemeProvider>
-      </body>
+    <html lang="ja">
+      <body className={`${inter.variable} ${mplus.variable} font-mplus`}>{children}</body>
     </html>
   )
 }

@@ -1,0 +1,5 @@
+# Supabase Edge Function Configuration
+name: decrease_days
+version: 1.0.0
+description: Decreases the remaining days for all items by 1 day
+schedule: "0 0 * * *" # 毎日午前0時に実行 (UTC)

@@ -1,92 +1,86 @@
-"use client"
-
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { useAuth } from "@/contexts/auth-context"
-import { useItems } from "@/hooks/use-items"
+import Link from "next/link"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import type { Item } from "@/types/item"
-import { ItemCard } from "@/components/item-card"
-import { AddItemModal } from "@/components/add-item-modal"
-import { EditItemModal } from "@/components/edit-item-modal"
-import { Loader2, LogOut, Plus } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 
 export default function Home() {
-  const { user, isLoading: authLoading, signOut } = useAuth()
-  const { items, isLoading: itemsLoading } = useItems()
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
-  const [editingItem, setEditingItem] = useState<Item | null>(null)
-  const router = useRouter()
-
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/signin")
-    }
-  }, [authLoading, user, router])
-
-  const handleEditItem = (item: Item) => {
-    setEditingItem(item)
-  }
-
-  const handleSignOut = async () => {
-    await signOut()
-    router.push("/signin")
-  }
-
-  if (authLoading || itemsLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
-  }
-
-  if (!user) {
-    return null
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="mx-auto max-w-6xl">
-        <header className="mb-8 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Inventory Management</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-500">{user.email}</span>
-            <Button variant="outline" size="sm" onClick={handleSignOut}>
-              <LogOut className="mr-2 h-4 w-4" />
-              Sign Out
-            </Button>
+    <div className="flex flex-col min-h-screen bg-white">
+      <header className="px-4 lg:px-6 h-14 flex items-center border-b bg-white">
+        <Link className="flex items-center justify-center" href="#">
+          <div className="flex items-center">
+            <div className="h-8 w-8 mr-2">
+              <Image src="/app-icon.png" alt="mom-stockアイコン" width={32} height={32} className="rounded-md" />
+            </div>
+            <span className="text-xl font-bold text-gray-800">mom-stock</span>
           </div>
-        </header>
-
-        <div className="mb-6 flex justify-between">
-          <h2 className="text-xl font-semibold">Your Items</h2>
-          <Button onClick={() => setIsAddModalOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Item
-          </Button>
+        </Link>
+        <nav className="ml-auto flex gap-4 sm:gap-6">
+          <Link
+            className="text-sm font-medium text-gray-600 hover:text-pink-500 hover:underline underline-offset-4"
+            href="/login"
+          >
+            ログイン
+          </Link>
+          <Link
+            className="text-sm font-medium text-gray-600 hover:text-pink-500 hover:underline underline-offset-4"
+            href="/register"
+          >
+            新規登録
+          </Link>
+        </nav>
+      </header>
+      <main className="flex-1 flex flex-col md:flex-row items-center">
+        <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center">
+          <div className="max-w-md mx-auto space-y-4">
+            <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl text-gray-800">
+              育児ママの味方、mom-stock
+            </h1>
+            <p className="text-gray-600 md:text-lg">
+              おむつや綿棒、ローションなどの在庫管理をスマートに。買い忘れの心配なく、育児に集中できます。
+            </p>
+            <div className="pt-4">
+              <Link href="/dashboard">
+                <Button className="bg-pink-400 hover:bg-pink-500 rounded-full shadow-sm">
+                  今すぐ始める
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          </div>
         </div>
-
-        {items.length === 0 ? (
-          <div className="rounded-lg border border-dashed p-8 text-center">
-            <p className="text-gray-500">No items yet. Add your first item to get started.</p>
-            <Button className="mt-4" onClick={() => setIsAddModalOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Item
-            </Button>
+        <div className="w-full md:w-1/2 p-8 flex justify-center items-center">
+          <div className="relative w-64 h-64 md:w-72 md:h-72">
+            <div className="absolute inset-0 rounded-full bg-pink-50 flex items-center justify-center overflow-hidden">
+              <div className="relative w-56 h-56 md:w-64 md:h-64">
+                <Image
+                  src="/mother-baby-illustration.png"
+                  alt="母親と赤ちゃんのイラスト"
+                  fill
+                  className="object-contain scale-110"
+                  priority
+                />
+              </div>
+            </div>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {items.map((item) => (
-              <ItemCard key={item.id} item={item} onEdit={handleEditItem} />
-            ))}
+        </div>
+      </main>
+      <footer className="border-t py-6 px-4 md:px-6 bg-white">
+        <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
+          <p className="text-xs text-gray-500">© 2024 mom-stock. All rights reserved.</p>
+          <div className="flex gap-4 mt-4 md:mt-0">
+            <Link href="#" className="text-xs text-gray-500 hover:text-pink-500">
+              プライバシーポリシー
+            </Link>
+            <Link href="#" className="text-xs text-gray-500 hover:text-pink-500">
+              利用規約
+            </Link>
+            <Link href="#" className="text-xs text-gray-500 hover:text-pink-500">
+              お問い合わせ
+            </Link>
           </div>
-        )}
-      </div>
-
-      <AddItemModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
-
-      {editingItem && <EditItemModal item={editingItem} isOpen={!!editingItem} onClose={() => setEditingItem(null)} />}
+        </div>
+      </footer>
     </div>
   )
 }
