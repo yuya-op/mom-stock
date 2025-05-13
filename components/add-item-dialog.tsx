@@ -7,8 +7,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Barcode, Search } from "lucide-react"
+import { Barcode, Search, Smartphone } from "lucide-react"
+import { useMobile } from "@/hooks/use-mobile"
 import Image from "next/image"
+import { BarcodeScanner } from "./barcode-scanner"
+import type { ProductInfo } from "@/services/product-service"
 
 export function AddItemDialog({ open, onClose, onAdd }) {
   const [name, setName] = useState("")
@@ -20,6 +23,10 @@ export function AddItemDialog({ open, onClose, onAdd }) {
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState([])
   const [selectedSearchItem, setSelectedSearchItem] = useState(null)
+  const [activeTab, setActiveTab] = useState("manual") // デフォルトタブを変更
+  const [scannerActive, setScannerActive] = useState(false)
+  const [productImage, setProductImage] = useState<string | null>(null)
+  const isMobile = useMobile() // モバイルデバイスかどうかを判定
 
   // スライダーの最大値を120日に設定
   const MAX_DAYS = 999
@@ -30,6 +37,33 @@ export function AddItemDialog({ open, onClose, onAdd }) {
     // 最大値を超えないように制限（999日まで）
     setDaysRemaining(Math.min(calculatedDays, 999))
   }, [consumptionDays, stockCount])
+
+  // バーコードタブを選択した時にスキャナーをアクティブにする
+  useEffect(() => {
+    if (activeTab === "barcode" && isMobile) {
+      setScannerActive(true)
+    } else {
+      setScannerActive(false)
+    }
+  }, [activeTab, isMobile])
+
+  // スキャナーで商品が見つかった時の処理
+  const handleProductFound = (product: ProductInfo) => {
+    setName(product.name)
+    setCategory(product.category)
+    setProductImage(product.imageUrl)
+    if (product.price) {
+      // その他の情報も設定可能
+    }
+    setScannerActive(false)
+    setActiveTab("manual") // 手動入力タブに切り替え
+  }
+
+  // スキャナーでエラーが発生した時の処理
+  const handleScannerError = () => {
+    setScannerActive(false)
+    setActiveTab("manual") // 手動入力タブに切り替え
+  }
 
   // handleSubmit関数を修正して、データベースに保存する値を調整
   const handleSubmit = (e) => {
@@ -51,7 +85,9 @@ export function AddItemDialog({ open, onClose, onAdd }) {
       totalAmount: 100,
       decrease_rate: 100 / 30, // Rate to empty in 30 days
       imageUrl:
-        selectedSearchItem?.imageUrl || `/placeholder.svg?height=100&width=100&query=${encodeURIComponent(name)}`,
+        productImage ||
+        selectedSearchItem?.imageUrl ||
+        `/placeholder.svg?height=100&width=100&query=${encodeURIComponent(name)}`,
       purchaseUrl: "https://www.amazon.co.jp/",
     })
 
@@ -86,6 +122,9 @@ export function AddItemDialog({ open, onClose, onAdd }) {
     setSearchQuery("")
     setSearchResults([])
     setSelectedSearchItem(null)
+    setProductImage(null)
+    setActiveTab("manual")
+    setScannerActive(false)
   }
 
   const handleSearch = () => {
@@ -116,12 +155,22 @@ export function AddItemDialog({ open, onClose, onAdd }) {
     setName(result.name)
     setCategory(result.category)
     setSelectedSearchItem(result)
+    setProductImage(result.imageUrl)
     setSearchResults([])
   }
 
   // 商品情報入力フォーム（手動入力と検索結果選択後で共通利用）
   const renderItemForm = () => (
     <div className="grid gap-4 py-4">
+      {/* 商品画像がある場合は表示 */}
+      {productImage && (
+        <div className="flex justify-center mb-2">
+          <div className="relative w-24 h-24 overflow-hidden rounded-lg border">
+            <Image src={productImage || "/placeholder.svg"} alt={name || "商品画像"} fill className="object-cover" />
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-2">
         <Label htmlFor="name" className="text-gray-700">
           商品名
@@ -213,11 +262,12 @@ export function AddItemDialog({ open, onClose, onAdd }) {
         <DialogHeader className="bg-gray-50 pb-4">
           <DialogTitle className="text-gray-800">新しいアイテムを追加</DialogTitle>
         </DialogHeader>
-        <Tabs defaultValue="barcode">
+        <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-3 bg-gray-50 rounded-full p-1">
             <TabsTrigger
               value="barcode"
               className="rounded-full data-[state=active]:bg-white data-[state=active]:text-gray-800"
+              disabled={!isMobile} // モバイルでない場合は無効化
             >
               バーコード
             </TabsTrigger>
@@ -236,17 +286,31 @@ export function AddItemDialog({ open, onClose, onAdd }) {
           </TabsList>
 
           <TabsContent value="barcode" className="min-h-[300px] overflow-auto">
-            <div className="flex flex-col items-center justify-center gap-4 py-8">
-              <Barcode className="h-16 w-16 text-gray-400" />
-              <p className="text-center text-sm text-gray-500">
-                カメラを起動してバーコードをスキャンします。
-                <br />
-                （この機能はデモでは利用できません）
-              </p>
-              <Button variant="outline" disabled>
-                スキャン開始
-              </Button>
-            </div>
+            {!isMobile ? (
+              <div className="flex flex-col items-center justify-center gap-4 py-8">
+                <Smartphone className="h-16 w-16 text-gray-400" />
+                <p className="text-center text-sm text-gray-500">
+                  バーコードスキャン機能はモバイルデバイスでのみ利用できます。
+                </p>
+              </div>
+            ) : scannerActive ? (
+              <BarcodeScanner
+                onProductFound={handleProductFound}
+                onCancel={() => {
+                  setScannerActive(false)
+                  setActiveTab("manual")
+                }}
+                onError={handleScannerError}
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-4 py-8">
+                <Barcode className="h-16 w-16 text-gray-400" />
+                <p className="text-center text-sm text-gray-500">カメラを起動してバーコードをスキャンします。</p>
+                <Button variant="outline" onClick={() => setScannerActive(true)} className="rounded-full">
+                  スキャン開始
+                </Button>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="search" className="overflow-auto">

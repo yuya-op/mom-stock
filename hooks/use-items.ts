@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { supabase } from "@/lib/supabase"
 import type { Item } from "@/types/item"
 import { useToast } from "@/hooks/use-toast"
-　
+
 export function useItems() {
   const [items, setItems] = useState<Item[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -111,14 +111,12 @@ export function useItems() {
           return false
         }
 
-        // consumption_daysとstock_countはデータベースに保存せず、
-        // ローカルストレージだけで管理するように変更
-        const { consumption_days, stock_count, ...dbItem } = item
-
         const { error } = await supabase.from("items").insert([
           {
-            ...dbItem,
+            ...item,
             user_id: session.session.user.id,
+            consumption_days: item.consumption_days || 30, // デフォルト値を設定
+            stock_count: item.stock_count || 1, // デフォルト値を設定
           },
         ])
 
@@ -126,33 +124,6 @@ export function useItems() {
 
         // Refresh items
         await fetchItems()
-
-        // アイテムが追加された後、ローカルストレージに消費日数と在庫数を保存
-        try {
-          // アイテムIDを取得（最新のアイテムを検索）
-          const { data: newItems } = await supabase
-            .from("items")
-            .select("id")
-            .eq("user_id", session.session.user.id)
-            .eq("name", item.name)
-            .order("id", { ascending: false })
-            .limit(1)
-
-          if (newItems && newItems.length > 0) {
-            const newItem = newItems[0]
-            const storageKey = `item_${newItem.id}_metadata`
-            localStorage.setItem(
-              storageKey,
-              JSON.stringify({
-                consumption_days: consumption_days || 30,
-                stock_count: stock_count || 1,
-              }),
-            )
-          }
-        } catch (err) {
-          console.log("Failed to save to localStorage", err)
-        }
-
         return true
       } catch (err) {
         console.error("Error adding item:", err)
@@ -177,15 +148,6 @@ export function useItems() {
 
         // Update local state
         setItems((prev) => prev.filter((item) => item.id !== id))
-
-        // ローカルストレージからも削除
-        try {
-          const storageKey = `item_${id}_metadata`
-          localStorage.removeItem(storageKey)
-        } catch (err) {
-          console.log("Failed to remove from localStorage", err)
-        }
-
         return true
       } catch (err) {
         console.error("Error deleting item:", err)
