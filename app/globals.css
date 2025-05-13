@@ -118,3 +118,13 @@
 .hover-soft-pink:hover {
   background-color: #ffd6e0;
 }
+
+/* Capacitorバーコードスキャナー用のスタイル */
+.barcode-scanner-active {
+  background: transparent;
+  visibility: hidden;
+}
+
+.barcode-scanner-active > * {
+  visibility: hidden;
+}

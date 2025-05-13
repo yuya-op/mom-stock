@@ -1,69 +1,57 @@
-// 商品情報取得サービス
-
-// 商品情報の型定義
 export interface ProductInfo {
+  id?: string
   name: string
-  category: string
-  imageUrl: string | null
-  price?: number
+  category?: string
+  image?: string
+  description?: string
+  barcode: string
 }
 
-// サンプル商品データ（実際の実装ではAPIを使用）
-const SAMPLE_PRODUCTS: Record<string, ProductInfo> = {
-  "4901301348593": {
-    // 花王 メリーズ Sサイズ
-    name: "メリーズ おむつ Sサイズ (4~8kg) 82枚",
-    category: "おむつ",
-    imageUrl: "/colorful-diaper-stack.png",
-    price: 1980,
+// モックデータ（実際のAPIに置き換えることができます）
+const mockProducts: ProductInfo[] = [
+  {
+    id: "1",
+    name: "パンパース テープ Sサイズ",
+    category: "diaper",
+    image: "/public/assorted-baby-diapers.png",
+    description: "赤ちゃんのお肌にやさしいおむつ",
+    barcode: "4902430893800",
   },
-  "4902011731842": {
-    // パンパース テープ Mサイズ
-    name: "パンパース さらさらケア テープ Mサイズ 64枚",
-    category: "おむつ",
-    imageUrl: "/assorted-baby-diapers.png",
-    price: 1780,
+  {
+    id: "2",
+    name: "メリーズ テープ Mサイズ",
+    category: "diaper",
+    image: "/public/assorted-baby-diapers.png",
+    description: "通気性の良いおむつ",
+    barcode: "4901301230881",
   },
-  "4987072069875": {
-    // 明治 ほほえみ 800g
-    name: "明治 ほほえみ 粉ミルク 800g",
-    category: "食料品",
-    imageUrl: "/infant-feeding-essentials.png",
-    price: 1600,
+  {
+    id: "3",
+    name: "和光堂 ベビーフード 7ヶ月から",
+    category: "food",
+    image: "/public/single-baby-food-jar.png",
+    description: "栄養バランスの良いベビーフード",
+    barcode: "4987244171245",
   },
-  "4987244183798": {
-    // ピジョン 液体ミルク 240ml
-    name: "ピジョン 液体ミルク 240ml×6本",
-    category: "食料品",
-    imageUrl: "/single-baby-food-jar.png",
-    price: 1250,
-  },
-  "4901301278609": {
-    // ビオレu ベビーマイルドボディウォッシュ
-    name: "ビオレu ベビーマイルドボディウォッシュ 詰替え 380ml",
-    category: "ケア用品",
-    imageUrl: "/gentle-baby-wash.png",
-    price: 480,
-  },
-}
+]
 
-// バーコードから商品情報を取得する関数
-export async function getProductInfo(barcode: string): Promise<ProductInfo | null> {
-  try {
-    // 実際の実装では外部APIを呼び出す
-    // 例: const response = await fetch(`https://api.example.com/products/${barcode}`);
+export const getProductInfo = async (barcode: string): Promise<ProductInfo | null> => {
+  // 実際のAPIを呼び出す場合はここを変更
+  // const response = await fetch(`https://api.example.com/products?barcode=${barcode}`);
+  // return response.json();
 
-    // モック実装：サンプルデータから商品情報を取得
-    await new Promise((resolve) => setTimeout(resolve, 1000)) // 実際のAPI呼び出しを模倣するための遅延
+  // モックデータから検索
+  const product = mockProducts.find((p) => p.barcode === barcode)
 
-    if (SAMPLE_PRODUCTS[barcode]) {
-      return SAMPLE_PRODUCTS[barcode]
+  // 実際のAPIがない場合のフォールバック
+  if (!product) {
+    // バーコードから仮の商品情報を生成
+    return {
+      name: `商品 (${barcode})`,
+      barcode: barcode,
+      category: "other",
     }
-
-    // バーコードに対応する商品が見つからない場合
-    return null
-  } catch (error) {
-    console.error("Failed to fetch product info:", error)
-    return null
   }
+
+  return product
 }

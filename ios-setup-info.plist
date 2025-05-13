@@ -1,0 +1,7 @@
+<!-- Info.plistに追加する内容 -->
+<key>NSCameraUsageDescription</key>
+<string>バーコードをスキャンするためにカメラへのアクセスが必要です</string>
+<key>NSPhotoLibraryAddUsageDescription</key>
+<string>写真を保存するためにフォトライブラリへのアクセスが必要です</string>
+<key>NSPhotoLibraryUsageDescription</key>
+<string>写真を選択するためにフォトライブラリへのアクセスが必要です</string>

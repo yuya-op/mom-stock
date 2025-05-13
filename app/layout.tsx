@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter, M_PLUS_Rounded_1c } from "next/font/google"
 import "./globals.css"
+import { PushNotificationSetup } from "@/components/push-notification-setup"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 const mplus = M_PLUS_Rounded_1c({
@@ -23,7 +24,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ja">
-      <body className={`${inter.variable} ${mplus.variable} font-mplus`}>{children}</body>
+      <body className={`${inter.variable} ${mplus.variable} font-mplus`}>
+        <PushNotificationSetup />
+        {children}
+      </body>
     </html>
   )
 }
