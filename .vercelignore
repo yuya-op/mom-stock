@@ -1,0 +1,5 @@
+supabase/
+*.sql
+scripts/
+schema*.sql
+sql/

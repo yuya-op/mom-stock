@@ -11,6 +11,12 @@ const nextConfig = {
     domains: ["localhost"],
     unoptimized: true,
   },
+  // 問題のあるディレクトリを除外
+  experimental: {
+    outputFileTracingExcludes: {
+      "*": ["supabase/**", "**/*.sql", "scripts/**", "sql/**"],
+    },
+  },
 }
 
 module.exports = nextConfig

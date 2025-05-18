@@ -68,11 +68,11 @@ export default function Register() {
 
       // 登録成功
       if (data.user) {
-        // メール確認が必要な場合は確認ページにリダイレクト
-        router.push(`/register/confirm-email?email=${encodeURIComponent(email)}`)
+        // ダッシュボードにリダイレクト
+        router.push("/dashboard")
       } else {
         // メール確認が必要な場合
-        router.push(`/register/confirm-email?email=${encodeURIComponent(email)}`)
+        router.push("/register/confirm-email")
       }
     } catch (err: any) {
       console.error("Registration error:", err)
