@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/decrease-days",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}
