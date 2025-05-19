@@ -7,8 +7,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Barcode, Search } from "lucide-react"
+import { Barcode, Search, Loader2 } from "lucide-react"
 import Image from "next/image"
+import { BarcodeScanner } from "@/components/barcode-scanner"
+import { getProductByBarcode } from "@/lib/barcode-service"
+import { supabase } from "@/lib/supabase"
 
 export function AddItemDialog({ open, onClose, onAdd }) {
   const [name, setName] = useState("")
@@ -20,6 +23,10 @@ export function AddItemDialog({ open, onClose, onAdd }) {
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState([])
   const [selectedSearchItem, setSelectedSearchItem] = useState(null)
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
+  const [isLoadingBarcode, setIsLoadingBarcode] = useState(false)
+  const [barcodeError, setBarcodeError] = useState(null)
+  const [scannedBarcode, setScannedBarcode] = useState(null)
 
   // スライダーの最大値を120日に設定
   const MAX_DAYS = 999
@@ -55,6 +62,11 @@ export function AddItemDialog({ open, onClose, onAdd }) {
       purchaseUrl: "https://www.amazon.co.jp/",
     })
 
+    // バーコード情報がある場合、バーコードテーブルに保存
+    if (scannedBarcode) {
+      saveBarcode(scannedBarcode)
+    }
+
     // アイテムが追加された後、ローカルストレージに消費日数と在庫数を保存するためのコールバック
     setTimeout(() => {
       try {
@@ -77,6 +89,36 @@ export function AddItemDialog({ open, onClose, onAdd }) {
     resetForm()
   }
 
+  // バーコード情報をSupabaseに保存
+  const saveBarcode = async (barcode) => {
+    try {
+      // 最新のアイテムIDを取得する必要があります
+      // 注: 実際の実装では、onAddの戻り値などで正確なIDを取得する必要があります
+      const { data: items, error } = await supabase
+        .from("items")
+        .select("id")
+        .order("created_at", { ascending: false })
+        .limit(1)
+
+      if (error) {
+        console.error("Error fetching latest item:", error)
+        return
+      }
+
+      if (items && items.length > 0) {
+        const latestItemId = items[0].id
+
+        // バーコード情報を保存
+        await supabase.from("product_barcodes").upsert({
+          barcode: barcode,
+          product_id: latestItemId,
+        })
+      }
+    } catch (err) {
+      console.error("Error saving barcode:", err)
+    }
+  }
+
   const resetForm = () => {
     setName("")
     setCategory("その他")
@@ -86,6 +128,8 @@ export function AddItemDialog({ open, onClose, onAdd }) {
     setSearchQuery("")
     setSearchResults([])
     setSelectedSearchItem(null)
+    setScannedBarcode(null)
+    setBarcodeError(null)
   }
 
   const handleSearch = () => {
@@ -117,6 +161,48 @@ export function AddItemDialog({ open, onClose, onAdd }) {
     setCategory(result.category)
     setSelectedSearchItem(result)
     setSearchResults([])
+  }
+
+  // バーコードスキャン開始
+  const startBarcodeScanner = () => {
+    setShowBarcodeScanner(true)
+  }
+
+  // バーコードスキャン結果の処理
+  const handleBarcodeDetected = async (barcode) => {
+    setShowBarcodeScanner(false)
+    setIsLoadingBarcode(true)
+    setBarcodeError(null)
+    setScannedBarcode(barcode)
+
+    try {
+      // バーコードから商品情報を取得
+      const productInfo = await getProductByBarcode(barcode)
+
+      if (productInfo) {
+        // 商品情報をフォームに設定
+        setName(productInfo.name)
+        setCategory(productInfo.category)
+        if (productInfo.consumption_days) {
+          setConsumptionDays(productInfo.consumption_days)
+        }
+        if (productInfo.imageUrl) {
+          setSelectedSearchItem({
+            imageUrl: productInfo.imageUrl,
+          })
+        }
+      } else {
+        // 商品情報が見つからない場合
+        setBarcodeError(
+          `バーコード(${barcode})に対応する商品情報が見つかりませんでした。手動で情報を入力してください。`,
+        )
+      }
+    } catch (err) {
+      console.error("Error processing barcode:", err)
+      setBarcodeError("バーコード情報の取得中にエラーが発生しました。手動で情報を入力してください。")
+    } finally {
+      setIsLoadingBarcode(false)
+    }
   }
 
   // 商品情報入力フォーム（手動入力と検索結果選択後で共通利用）
@@ -202,123 +288,185 @@ export function AddItemDialog({ open, onClose, onAdd }) {
   )
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(isOpen) => {
-        if (!isOpen) resetForm()
-        onClose()
-      }}
-    >
-      <DialogContent className="sm:max-w-[425px] rounded-2xl border-gray-200 max-h-[90vh] overflow-y-auto flex flex-col">
-        <DialogHeader className="bg-gray-50 pb-4">
-          <DialogTitle className="text-gray-800">新しいアイテムを追加</DialogTitle>
-        </DialogHeader>
-        <Tabs defaultValue="barcode">
-          <TabsList className="grid w-full grid-cols-3 bg-gray-50 rounded-full p-1">
-            <TabsTrigger
-              value="barcode"
-              className="rounded-full data-[state=active]:bg-white data-[state=active]:text-gray-800"
-            >
-              バーコード
-            </TabsTrigger>
-            <TabsTrigger
-              value="search"
-              className="rounded-full data-[state=active]:bg-white data-[state=active]:text-gray-800"
-            >
-              検索
-            </TabsTrigger>
-            <TabsTrigger
-              value="manual"
-              className="rounded-full data-[state=active]:bg-white data-[state=active]:text-gray-800"
-            >
-              手動入力
-            </TabsTrigger>
-          </TabsList>
+    <>
+      <Dialog
+        open={open}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) resetForm()
+          onClose()
+        }}
+      >
+        <DialogContent className="sm:max-w-[425px] rounded-2xl border-gray-200 max-h-[90vh] overflow-y-auto flex flex-col">
+          <DialogHeader className="bg-gray-50 pb-4">
+            <DialogTitle className="text-gray-800">新しいアイテムを追加</DialogTitle>
+          </DialogHeader>
+          <Tabs defaultValue="barcode">
+            <TabsList className="grid w-full grid-cols-3 bg-gray-50 rounded-full p-1">
+              <TabsTrigger
+                value="barcode"
+                className="rounded-full data-[state=active]:bg-white data-[state=active]:text-gray-800"
+              >
+                バーコード
+              </TabsTrigger>
+              <TabsTrigger
+                value="search"
+                className="rounded-full data-[state=active]:bg-white data-[state=active]:text-gray-800"
+              >
+                検索
+              </TabsTrigger>
+              <TabsTrigger
+                value="manual"
+                className="rounded-full data-[state=active]:bg-white data-[state=active]:text-gray-800"
+              >
+                手動入力
+              </TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="barcode" className="min-h-[300px] overflow-auto">
-            <div className="flex flex-col items-center justify-center gap-4 py-8">
-              <Barcode className="h-16 w-16 text-gray-400" />
-              <p className="text-center text-sm text-gray-500">
-                カメラを起動してバーコードをスキャンします。
-                <br />
-                （この機能はデモでは利用できません）
-              </p>
-              <Button variant="outline" disabled>
-                スキャン開始
-              </Button>
-            </div>
-          </TabsContent>
+            <TabsContent value="barcode" className="min-h-[300px] overflow-auto">
+              {isLoadingBarcode ? (
+                <div className="flex flex-col items-center justify-center gap-4 py-8">
+                  <Loader2 className="h-16 w-16 text-gray-400 animate-spin" />
+                  <p className="text-center text-sm text-gray-500">バーコード情報を取得中...</p>
+                </div>
+              ) : scannedBarcode ? (
+                <div className="p-4">
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                    <p className="text-green-700 font-medium">バーコードをスキャンしました</p>
+                    <p className="text-sm text-green-600">バーコード: {scannedBarcode}</p>
+                  </div>
 
-          <TabsContent value="search" className="overflow-auto">
-            {!selectedSearchItem ? (
-              <div className="grid gap-4 py-4">
-                <div className="flex items-center gap-2">
-                  <Input
-                    placeholder="商品名で検索"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        handleSearch()
-                      }
-                    }}
-                  />
-                  <Button type="button" size="icon" onClick={handleSearch} className="bg-gray-700 hover:bg-gray-800">
-                    <Search className="h-4 w-4" />
+                  {barcodeError && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+                      <p className="text-amber-700 text-sm">{barcodeError}</p>
+                    </div>
+                  )}
+
+                  {renderItemForm()}
+
+                  <div className="text-xs text-gray-500 mb-4">
+                    {name || "アイテム"}の残り日数は{consumptionDays}日/個 × {stockCount}個(追加個数) = {daysRemaining}
+                    日として計算されます。
+                  </div>
+
+                  <div className="flex space-x-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => {
+                        setScannedBarcode(null)
+                        setBarcodeError(null)
+                      }}
+                    >
+                      再スキャン
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={handleSubmit}
+                      className="flex-1 bg-pink-400 hover:bg-pink-500 rounded-full"
+                    >
+                      追加
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-4 py-8">
+                  <Barcode className="h-16 w-16 text-gray-400" />
+                  <p className="text-center text-sm text-gray-500">カメラを起動してバーコードをスキャンします。</p>
+                  <Button variant="outline" onClick={startBarcodeScanner}>
+                    スキャン開始
                   </Button>
                 </div>
-                {searchResults.length > 0 && (
-                  <div className="grid gap-2 max-h-[200px] overflow-auto">
-                    {searchResults.map((result) => (
-                      <div
-                        key={result.id}
-                        className="flex items-center gap-2 p-2 border rounded cursor-pointer hover:bg-gray-50"
-                        onClick={() => selectSearchResult(result)}
-                      >
-                        <div className="relative h-10 w-10 overflow-hidden rounded">
-                          <Image
-                            src={result.imageUrl || "/placeholder.svg"}
-                            alt={result.name}
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
-                        <div>
-                          <div className="text-sm font-medium">{result.name}</div>
-                          <div className="text-xs text-gray-500">{result.category}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
-                <div className="py-2 px-4 bg-gray-50 rounded-lg mb-4 flex items-center">
-                  <div className="relative h-10 w-10 overflow-hidden rounded mr-3">
-                    <Image
-                      src={selectedSearchItem.imageUrl || "/placeholder.svg"}
-                      alt={selectedSearchItem.name}
-                      fill
-                      className="object-cover"
+              )}
+            </TabsContent>
+
+            <TabsContent value="search" className="overflow-auto">
+              {!selectedSearchItem ? (
+                <div className="grid gap-4 py-4">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="商品名で検索"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          handleSearch()
+                        }
+                      }}
                     />
+                    <Button type="button" size="icon" onClick={handleSearch} className="bg-gray-700 hover:bg-gray-800">
+                      <Search className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <div>
-                    <div className="text-sm font-medium">{selectedSearchItem.name}</div>
-                    <div className="text-xs text-gray-500">検索結果から選択</div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="ml-auto text-gray-500"
-                    onClick={() => {
-                      setSelectedSearchItem(null)
-                      setSearchQuery("")
-                    }}
-                  >
-                    変更
-                  </Button>
+                  {searchResults.length > 0 && (
+                    <div className="grid gap-2 max-h-[200px] overflow-auto">
+                      {searchResults.map((result) => (
+                        <div
+                          key={result.id}
+                          className="flex items-center gap-2 p-2 border rounded cursor-pointer hover:bg-gray-50"
+                          onClick={() => selectSearchResult(result)}
+                        >
+                          <div className="relative h-10 w-10 overflow-hidden rounded">
+                            <Image
+                              src={result.imageUrl || "/placeholder.svg"}
+                              alt={result.name}
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium">{result.name}</div>
+                            <div className="text-xs text-gray-500">{result.category}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
+              ) : (
+                <>
+                  <div className="py-2 px-4 bg-gray-50 rounded-lg mb-4 flex items-center">
+                    <div className="relative h-10 w-10 overflow-hidden rounded mr-3">
+                      <Image
+                        src={selectedSearchItem.imageUrl || "/placeholder.svg"}
+                        alt={selectedSearchItem.name}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium">{selectedSearchItem.name}</div>
+                      <div className="text-xs text-gray-500">検索結果から選択</div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="ml-auto text-gray-500"
+                      onClick={() => {
+                        setSelectedSearchItem(null)
+                        setSearchQuery("")
+                      }}
+                    >
+                      変更
+                    </Button>
+                  </div>
+                  {renderItemForm()}
+                  {/* 説明文を修正 */}
+                  <div className="text-xs text-gray-500 mb-4">
+                    {name || "アイテム"}の残り日数は{consumptionDays}日/個 × {stockCount}個(追加個数) = {daysRemaining}
+                    日として計算されます。
+                  </div>
+                  <DialogFooter>
+                    <Button type="button" onClick={handleSubmit} className="bg-pink-400 hover:bg-pink-500 rounded-full">
+                      追加
+                    </Button>
+                  </DialogFooter>
+                </>
+              )}
+            </TabsContent>
+
+            <TabsContent value="manual" className="overflow-auto">
+              <form onSubmit={handleSubmit}>
                 {renderItemForm()}
                 {/* 説明文を修正 */}
                 <div className="text-xs text-gray-500 mb-4">
@@ -326,31 +474,20 @@ export function AddItemDialog({ open, onClose, onAdd }) {
                   日として計算されます。
                 </div>
                 <DialogFooter>
-                  <Button type="button" onClick={handleSubmit} className="bg-pink-400 hover:bg-pink-500 rounded-full">
+                  <Button type="submit" className="bg-pink-400 hover:bg-pink-500 rounded-full">
                     追加
                   </Button>
                 </DialogFooter>
-              </>
-            )}
-          </TabsContent>
+              </form>
+            </TabsContent>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
 
-          <TabsContent value="manual" className="overflow-auto">
-            <form onSubmit={handleSubmit}>
-              {renderItemForm()}
-              {/* 説明文を修正 */}
-              <div className="text-xs text-gray-500 mb-4">
-                {name || "アイテム"}の残り日数は{consumptionDays}日/個 × {stockCount}個(追加個数) = {daysRemaining}
-                日として計算されます。
-              </div>
-              <DialogFooter>
-                <Button type="submit" className="bg-pink-400 hover:bg-pink-500 rounded-full">
-                  追加
-                </Button>
-              </DialogFooter>
-            </form>
-          </TabsContent>
-        </Tabs>
-      </DialogContent>
-    </Dialog>
+      {/* バーコードスキャナーコンポーネント */}
+      {showBarcodeScanner && (
+        <BarcodeScanner onDetected={handleBarcodeDetected} onClose={() => setShowBarcodeScanner(false)} />
+      )}
+    </>
   )
 }
