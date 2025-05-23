@@ -1,47 +1,30 @@
-import { supabase } from "@/lib/supabase"
-
 // バーコードから商品情報を取得する関数
 export async function getProductByBarcode(barcode: string) {
   try {
-    // まずSupabaseのデータベースから検索
-    const { data, error } = await supabase
-      .from("product_barcodes")
-      .select(`
-        id,
-        barcode,
-        products (
-          id,
-          name,
-          category,
-          imageUrl,
-          consumption_days
-        )
-      `)
-      .eq("barcode", barcode)
-      .single()
+    // サーバーサイドAPIを呼び出す
+    const response = await fetch(`/api/barcode/${barcode}`)
 
-    if (error) {
-      console.error("Error fetching from Supabase:", error)
-      // データベースにない場合は外部APIから検索
-      return await fetchFromExternalAPI(barcode)
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`)
     }
 
-    if (data && data.products) {
-      return {
-        id: data.products.id,
-        name: data.products.name,
-        category: data.products.category,
-        imageUrl: data.products.imageUrl,
-        consumption_days: data.products.consumption_days || 30,
-        barcode: barcode,
-      }
-    } else {
-      // データベースにない場合は外部APIから検索
-      return await fetchFromExternalAPI(barcode)
+    const data = await response.json()
+
+    if (data.error) {
+      throw new Error(data.error)
     }
+
+    return data.product
   } catch (err) {
     console.error("Error in getProductByBarcode:", err)
-    return null
+    // エラー時は基本情報を返す
+    return {
+      name: `商品 (${barcode})`,
+      category: "その他",
+      imageUrl: null,
+      consumption_days: 30,
+      barcode: barcode,
+    }
   }
 }
 

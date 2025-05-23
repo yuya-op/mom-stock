@@ -1,6 +1,10 @@
 export function getCategoryImage(category: string, imageUrl?: string | null): string {
   // 画像URLが指定されている場合はそれを使用（空文字列や undefined でない場合）
   if (imageUrl && imageUrl.trim() !== "" && !imageUrl.includes("placeholder.svg")) {
+    // 外部URLの場合はプロキシを使用
+    if (imageUrl.startsWith("http") && !imageUrl.startsWith(window.location.origin)) {
+      return `/api/image-proxy?url=${encodeURIComponent(imageUrl)}`
+    }
     return imageUrl
   }
 
@@ -13,8 +17,8 @@ export function getCategoryImage(category: string, imageUrl?: string | null): st
     case "ケア用品":
       return "/category-care.png"
     case "その他":
-      return "/category-other.png" // この行を修正：その他カテゴリーは専用アイコンを使用
+      return "/category-other.png"
     default:
-      return "/category-other.png" // デフォルトもその他アイコンに変更
+      return "/category-other.png"
   }
 }

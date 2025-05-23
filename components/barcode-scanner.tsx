@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect, useCallback } from "react"
 import type Webcam from "react-webcam"
-import Quagga from "quagga"
+import Quagga from "@ericblade/quagga2"
 import { Button } from "@/components/ui/button"
 import { Loader2, Camera, X } from "lucide-react"
 
@@ -38,15 +38,19 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
           target: scannerRef.current,
           constraints: {
             facingMode: facingMode,
+            width: { min: 640 },
+            height: { min: 480 },
+            aspectRatio: { min: 1, max: 2 },
           },
         },
         locator: {
           patchSize: "medium",
           halfSample: true,
         },
-        numOfWorkers: 2,
+        numOfWorkers: navigator.hardwareConcurrency || 4,
+        frequency: 10,
         decoder: {
-          readers: ["ean_reader", "ean_8_reader", "upc_reader", "upc_e_reader"],
+          readers: ["ean_reader", "ean_8_reader", "upc_reader", "upc_e_reader", "code_39_reader", "code_128_reader"],
         },
         locate: true,
       },
@@ -65,17 +69,37 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
       },
     )
 
+    // 結果の信頼性を確保するための変数
+    let lastCode = ""
+    let sameCodeCount = 0
+
     // バーコード検出時のコールバック
     Quagga.onDetected((result) => {
       if (result && result.codeResult && result.codeResult.code) {
         const code = result.codeResult.code
-        console.log("Barcode detected:", code)
 
-        // 検出したバーコードを親コンポーネントに通知
-        onDetected(code)
+        // 同じコードが連続で検出された場合のみ有効とする（ノイズ対策）
+        if (code === lastCode) {
+          sameCodeCount++
 
-        // スキャンを停止
-        stopScanner()
+          // 同じコードが3回連続で検出されたら信頼性が高いと判断
+          if (sameCodeCount >= 3) {
+            console.log("Barcode detected with high confidence:", code)
+
+            // 検出したバーコードを親コンポーネントに通知
+            onDetected(code)
+
+            // スキャンを停止
+            stopScanner()
+
+            // カウンターをリセット
+            sameCodeCount = 0
+          }
+        } else {
+          // 新しいコードが検出されたらカウンターをリセット
+          lastCode = code
+          sameCodeCount = 1
+        }
       }
     })
 

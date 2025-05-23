@@ -12,6 +12,7 @@ import { DaysRemainingDialog } from "@/components/days_remaining_dialog"
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog"
 import { getCategoryImage } from "@/utils/get-category-image"
 import { getDaysRemaining } from "@/utils/days-remaining"
+import { supabase } from "@/lib/supabase"
 
 export function ItemDetailDialog({
   open,
@@ -43,27 +44,9 @@ export function ItemDetailDialog({
       const days = getDaysRemaining(item)
       setDaysRemaining(days)
 
-      // ローカルストレージから消費日数と在庫数を取得
-      try {
-        const storageKey = `item_${item.id}_metadata`
-        const storedData = localStorage.getItem(storageKey)
-
-        if (storedData) {
-          const metadata = JSON.parse(storedData)
-          const consumption = metadata.consumption_days || 30
-          const stock = metadata.stock_count || 1
-
-          // 状態を更新
-          setConsumptionDays(consumption)
-          setStockCount(stock)
-
-          // アイテムオブジェクトにも設定
-          item.consumption_days = consumption
-          item.stock_count = stock
-        }
-      } catch (err) {
-        console.log("Failed to load from localStorage", err)
-      }
+      // データベースから消費日数と在庫数を取得
+      setConsumptionDays(item.consumption_days || 30)
+      setStockCount(item.stock_count || 1)
     }
   }, [item])
 
@@ -192,19 +175,39 @@ export function ItemDetailDialog({
     }
   }
 
-  const handleUpdateDaysRemaining = (days, consumption, stock) => {
-    // 残り日数、消費日数、在庫数を更新
-    updateItemInfo(item.id, days, consumption, stock)
-    setDaysRemaining(days)
-    setConsumptionDays(consumption)
-    setStockCount(stock)
-    // アイテムオブジェクトも更新
-    if (item) {
-      item.days_remaining = days
-      item.consumption_days = consumption
-      item.stock_count = stock
+  const handleUpdateDaysRemaining = async (days, consumption, stock) => {
+    try {
+      // Supabaseに残り日数、消費日数、在庫数を更新
+      const { error } = await supabase
+        .from("items")
+        .update({
+          days_remaining: days,
+          consumption_days: consumption,
+          stock_count: stock,
+        })
+        .eq("id", item.id)
+
+      if (error) throw error
+
+      // 状態を更新
+      updateItemInfo(item.id, days, consumption, stock)
+      setDaysRemaining(days)
+      setConsumptionDays(consumption)
+      setStockCount(stock)
+
+      // アイテムオブジェクトも更新
+      if (item) {
+        item.days_remaining = days
+        item.consumption_days = consumption
+        item.stock_count = stock
+      }
+
+      setShowDaysRemainingDialog(false)
+      return true
+    } catch (err) {
+      console.error("Failed to update item:", err)
+      return false
     }
-    setShowDaysRemainingDialog(false)
   }
 
   const handleDeleteClick = () => {
