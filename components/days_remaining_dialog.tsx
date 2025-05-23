@@ -11,7 +11,6 @@ export function DaysRemainingDialog({ open, onClose, onConfirm, item }) {
   const [daysRemaining, setDaysRemaining] = useState(120)
   const [consumptionDays, setConsumptionDays] = useState(30)
   const [stockCount, setStockCount] = useState(1)
-  const [directAdjustMode, setDirectAdjustMode] = useState(false)
   const MAX_DAYS = 999
   const MAX_SLIDER_DAYS = 120 // スライダーの最大値
 
@@ -39,24 +38,11 @@ export function DaysRemainingDialog({ open, onClose, onConfirm, item }) {
 
       // 残り日数は直接アイテムから取得
       setDaysRemaining(item.days_remaining || 30)
-
-      // 直接調整モードをリセット
-      setDirectAdjustMode(false)
     }
   }, [item, open])
 
-  // 消費日数と在庫数から残り日数を計算
-  useEffect(() => {
-    if (!directAdjustMode) {
-      const calculatedDays = consumptionDays * stockCount
-      // 最大値を超えないように制限（999日まで）
-      setDaysRemaining(Math.min(calculatedDays, 999))
-    }
-  }, [consumptionDays, stockCount, directAdjustMode])
-
   // スライダーの値が変更されたときのハンドラーを追加
   const handleSliderChange = (value) => {
-    setDirectAdjustMode(true)
     setDaysRemaining(value)
   }
 
@@ -116,14 +102,15 @@ export function DaysRemainingDialog({ open, onClose, onConfirm, item }) {
                   max="120"
                   value={consumptionDays}
                   onChange={(e) => {
-                    setDirectAdjustMode(false)
                     setConsumptionDays(Number.parseInt(e.target.value) || 1)
                   }}
                   className="rounded-full border-gray-200 focus:border-gray-400 focus:ring-gray-400"
                 />
                 <span className="text-sm text-gray-500">日</span>
               </div>
-              <p className="text-xs text-gray-500">この商品がどのくらいの期間使用できるかを設定します</p>
+              <p className="text-xs text-gray-500">
+                この商品がどのくらいの期間使用できるかを設定します（残り日数とは独立して設定されます）
+              </p>
             </div>
 
             {/* 在庫数の入力フィールド */}
